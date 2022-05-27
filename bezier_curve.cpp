@@ -68,28 +68,11 @@ int main()
     Shader lava_shader(VERTEX_SHADER_NAME, FRAGMENT_SHADER_NAME);
 
     float vertices[] = {
-        0.0, 0.3,
-        0.1, 0.1,
-        0.4, 0.4,
-        0.6, 0.3
+        0.0f, 0.3f, 1.0f, 1.0f,
+        0.1f, 0.1f, 1.0f, 0.0f,
+        0.4f, 0.4f, 0.0f, 0.0f,
+        0.6f, 0.3f, 0.0f, 1.0f
     };
-
-    // float vertices[] = {
-    //     0.0, 0.0,
-    //     0.5, 0.0,
-    //     0.5, 0.5,
-
-    //     0.0, 0.0,
-    //     0.0, 0.5,
-    //     -0.5, 0.5,
-
-    //     0.0, 0.0,
-    //     -0.5, 0.0,
-    //     -0.5, -0.5,
-
-    //     0.0, 0.0,
-    //     0.0, -0.5,
-    //     0.5, -0.5};
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -101,10 +84,10 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
     // texture coord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     unsigned int baseMap = loadTexture(BASE_COLOR_TEX_PATH);
