@@ -67,68 +67,29 @@ int main()
 
     Shader lava_shader(VERTEX_SHADER_NAME, FRAGMENT_SHADER_NAME);
 
+    float vertices[] = {
+        0.0, 0.3,
+        0.1, 0.1,
+        0.4, 0.4,
+        0.6, 0.3
+    };
+
     // float vertices[] = {
     //     0.0, 0.0,
-   	// 	0.5, 0.0,
-   	// 	0.5, 0.5,
-   
-   	// 	0.0, 0.0,
-   	// 	0.0, 0.5,
-   	// 	-0.5, 0.5,
-  
-   	// 	0.0, 0.0,
-   	// 	-0.5, 0.0,
-  	// 	-0.5, -0.5,
-  
- 	// 	0.0, 0.0,
- 	// 	0.0, -0.5,
- 	// 	0.5, -0.5
-    // };
+    //     0.5, 0.0,
+    //     0.5, 0.5,
 
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
-        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+    //     0.0, 0.0,
+    //     0.0, 0.5,
+    //     -0.5, 0.5,
 
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-        0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
-        0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
-        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+    //     0.0, 0.0,
+    //     -0.5, 0.0,
+    //     -0.5, -0.5,
 
-        -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-        -0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-        -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, -0.5f, -0.5f, 1.0f, 1.0f,
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
-        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
-        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
-        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f};
-
-    glm::vec3 cubePositions[] = {glm::vec3(0.0f, 0.0f, 0.0f)};
+    //     0.0, 0.0,
+    //     0.0, -0.5,
+    //     0.5, -0.5};
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -140,10 +101,10 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // position
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
     // texture coord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     unsigned int baseMap = loadTexture(BASE_COLOR_TEX_PATH);
@@ -165,28 +126,18 @@ int main()
         lava_shader.use();
 
         glBindVertexArray(VAO);
-        for (unsigned int i = 0; i < 1; i++)
-        {
-            glm::mat4 model = glm::mat4(1.0f);
-            glm::mat4 view = glm::mat4(1.0f);
-            glm::mat4 projection = glm::mat4(1.0f);
-            view = glm::translate(view, glm::vec3(0.0f, 0.3f, -2.0f));
-            view = glm::rotate(view, (float)glfwGetTime() * glm::radians(20.0f), glm::vec3(1.0f, 1.0f, 0.1f));
-            projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-            model = glm::translate(model, cubePositions[i]);
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, baseMap);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, emissionMap);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, baseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, emissionMap);
 
-            lava_shader.setMat4("model", model);
-            lava_shader.setMat4("view", view);
-            lava_shader.setMat4("projection", projection);
+        lava_shader.setMat4("model", glm::mat4(1.0f));
+        lava_shader.setMat4("view", glm::mat4(1.0f));
+        lava_shader.setMat4("projection", glm::mat4(1.0f));
 
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
+        glad_glPointSize(10);
+        glDrawArrays(GL_POINTS, 0, 4);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
