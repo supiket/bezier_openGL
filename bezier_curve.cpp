@@ -67,11 +67,11 @@ int main()
 
     Shader lava_shader(VERTEX_SHADER_NAME, FRAGMENT_SHADER_NAME);
 
-    float vertices[] = {
-        0.0f, 0.3f, 1.0f, 1.0f,
-        0.1f, 0.1f, 1.0f, 0.0f,
-        0.4f, 0.4f, 0.0f, 0.0f,
-        0.6f, 0.3f, 0.0f, 1.0f
+    float vertices[5 * 10] = {
+        0.0f, 0.3f, 0.0f, 1.0f, 1.0f,
+        0.1f, 0.1f, 0.0f, 1.0f, 0.0f,
+        0.4f, 0.4f, 0.0f, 0.0f, 0.0f,
+        0.6f, 0.3f, 0.0f, 0.0f, 1.0f
     };
 
     unsigned int VBO, VAO;
@@ -81,13 +81,13 @@ int main()
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
     // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
     // texture coord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     unsigned int baseMap = loadTexture(BASE_COLOR_TEX_PATH);
@@ -103,6 +103,11 @@ int main()
 
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        float new_vertex[] = {-0.4f, -0.4f, 0.0f, 1.0f, 1.0f};
+
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 20 * sizeof(float), sizeof(new_vertex), new_vertex);
 
         glActiveTexture(GL_TEXTURE0);
 
@@ -120,7 +125,7 @@ int main()
         lava_shader.setMat4("projection", glm::mat4(1.0f));
 
         glad_glPointSize(10);
-        glDrawArrays(GL_POINTS, 0, 4);
+        glDrawArrays(GL_POINTS, 0, 5);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
