@@ -19,16 +19,9 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <stdlib.h>
 #include <stdio.h>
+#include <vector>
 
 using namespace std;
-
-void framebuffer_size_callback(GLFWwindow *window, int width, int height);
-void processInput(GLFWwindow *window);
-unsigned int loadTexture(const char *path);
-glm::vec3 quadratic(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t);
-glm::vec2 quadratic(glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t);
-glm::vec3 lerp(glm::vec3 p1, glm::vec3 p2, float t);
-glm::vec2 lerp(glm::vec2 p1, glm::vec2 p2, float t);
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -72,7 +65,7 @@ struct Vertex
         unsigned int num_new_points = num_new_vertices / INFO_PER_POINT;
 
         glad_glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferSubData(GL_ARRAY_BUFFER, vertices_length * primitive_size, sizeof(new_vertices), new_vertices);
+        glBufferSubData(GL_ARRAY_BUFFER, vertices_length * primitive_size, num_new_vertices * primitive_size, new_vertices);
 
         this->vertices_length += num_new_vertices;
         this->number_of_points += num_new_points;
@@ -110,6 +103,115 @@ struct Index
     }
 };
 
+struct Points
+{
+    struct Point
+    {
+        glm::vec3 position;
+        glm::vec2 tex_coord;
+        static Points *points;
+
+        Point()
+        {
+            this->points->num_points = 0;
+        }
+
+        Point(glm::vec3 pos, glm::vec2 tex) : position(pos), tex_coord(tex) {}
+
+        float *get_properties_as_array()
+        {
+            float *properties_array = new float[this->points->num_info_per_point];
+            int property_id = 0;
+            for (int i = 0; i < this->points->info_length_per_point[property_id]; i++)
+            {
+                properties_array[i] = position[i];
+            }
+            property_id++;
+            for (int i = 0; i < this->points->info_length_per_point[property_id]; i++)
+            {
+                properties_array[i + this->points->info_length_per_point[property_id - 1]] = tex_coord[i];
+            }
+            property_id++;
+            return properties_array;
+        }
+    };
+
+    static Point *points;
+    static int num_points;
+    static const int num_info_per_point;
+    static vector<int> info_length_per_point;
+    static Vertex *vertex;
+
+    Points() {}
+
+    void add_point(Point point)
+    {
+        this->points[num_points++] = point;
+    }
+
+    float *get_all_points_properties_as_array()
+    {
+        float *properties_array = new float[this->num_info_per_point * this->num_points];
+
+        for (int i = 0; i < this->num_points; i++)
+        {
+            Point curr_point = this->points[i];
+            float *point_properties = curr_point.get_properties_as_array();
+
+            for (int j = 0; j < this->num_info_per_point; j++)
+            {
+                properties_array[i * this->num_info_per_point + j] = point_properties[j];
+            }
+        }
+        return properties_array;
+    }
+
+    void write_all_points_to_buffer(unsigned int &VBO)
+    {
+        float *properties_array = new float[this->num_info_per_point * this->num_points];
+        for (int i = 0; i < this->num_points; i++)
+        {
+            Point curr_point = this->points[i];
+            float *point_properties = curr_point.get_properties_as_array();
+
+            for (int j = 0; j < this->num_info_per_point; j++)
+            {
+                properties_array[i * this->num_info_per_point + j] = point_properties[j];
+            }
+        }
+        this->vertex->add_vertices_update_buffer(VBO, this->num_points * INFO_PER_POINT, properties_array);
+    }
+
+    void write_point_to_buffer(unsigned int &VBO, Point point)
+    {
+        float *properties_array = new float[this->num_info_per_point];
+        float *point_properties = point.get_properties_as_array();
+
+        for (int i = 0; i < this->num_info_per_point; i++)
+        {
+            properties_array[i] = point_properties[i];
+        }
+
+        this->vertex->add_vertices_update_buffer(VBO, INFO_PER_POINT, properties_array);
+    }
+};
+
+Points::Point *Points::points = new Points::Point[MAX_NO_POINTS];
+int Points::num_points = 0;
+const int Points::num_info_per_point = 5;
+vector<int> Points::info_length_per_point = {3, 2};
+Vertex *Points::vertex = new Vertex;
+
+void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+void processInput(GLFWwindow *window);
+unsigned int loadTexture(const char *path);
+glm::vec3 quadratic(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t);
+glm::vec2 quadratic(glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t);
+Points::Point quadratic(Points::Point p1, Points::Point p2, Points::Point p3, float t);
+glm::vec3 lerp(glm::vec3 p1, glm::vec3 p2, float t);
+glm::vec2 lerp(glm::vec2 p1, glm::vec2 p2, float t);
+Points::Point lerp(Points::Point p1, Points::Point p2, float t);
+
 int main()
 {
     glfwInit();
@@ -140,22 +242,11 @@ int main()
     float vertices[INFO_PER_POINT * MAX_NO_POINTS] = {};
     unsigned int indices[1 * MAX_NO_PATCHES] = {};
 
-    float initial_points[] = {
-        0.0f, 0.3f, 0.0f, 1.0f, 1.0f,
-        0.1f, 0.1f, 0.0f, 1.0f, 0.0f,
-        0.4f, 0.4f, 0.0f, 0.0f, 0.0f,
-        0.6f, 0.3f, 0.0f, 0.0f, 1.0f};
-
-    unsigned int initial_indices[] = {
-        0,
-        1,
-        2,
-        3};
-
     Vertex vertex = Vertex();
     Index index = Index();
-    vertex.add_vertices(vertices, sizeof(initial_points) / vertex.primitive_size, initial_points);
-    index.add_indices(indices, sizeof(initial_indices) / index.primitive_size, initial_indices);
+    Points points = Points();
+
+    points.vertex = &vertex;
 
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -184,20 +275,24 @@ int main()
     lava_shader.setInt("material.base", 0);
     lava_shader.setInt("material.emission", 1);
 
+    points.add_point(Points::Point(glm::vec3(0.0f, 0.3f, 0.0f), glm::vec2(1.0f, 1.0f)));
+    points.add_point(Points::Point(glm::vec3(0.1f, 0.1f, 0.0f), glm::vec2(0.0f, 1.0f)));
+    points.add_point(Points::Point(glm::vec3(0.4f, 0.4f, 0.0f), glm::vec2(0.0f, 0.0f)));
+    points.add_point(Points::Point(glm::vec3(0.6f, 0.3f, 0.0f), glm::vec2(1.0f, 0.0f)));
+
+    points.write_all_points_to_buffer(VBO);
+
+    int patch = 0;
     for (float t = 0; t <= 1.1f; t += 0.05f)
     {
-        glm::vec3 ap1 = glm::vec3(0.0f, 0.3f, 0.0f);
-        glm::vec3 ap2 = glm::vec3(0.1f, 0.1f, 0.0f);
-        glm::vec3 cp1 = glm::vec3(0.4f, 0.4f, 0.0f);
-        glm::vec3 cp2 = glm::vec3(0.6f, 0.3f, 0.0f);
+        Points::Point p1 = points.points[patch];
+        Points::Point p2 = points.points[patch + 1];
+        Points::Point p3 = points.points[patch + 2];
+        Points::Point p4 = points.points[patch + 3];
 
-        glm::vec3 v1 = quadratic(ap1, ap2, cp1, t);
-        glm::vec3 v2 = quadratic(ap2, cp1, cp2, t);
-
-        glm::vec3 v = lerp(v1, v2, t);
-
-        float new_vertex[5] = {v.x, v.y, v.z, 1.0f, 1.0f};
-        vertex.add_vertices_update_buffer(VBO, sizeof(new_vertex) / vertex.primitive_size, new_vertex);
+        Points::Point lerp_point = lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t);
+        points.add_point(lerp_point);
+        vertex.add_vertices_update_buffer(VBO, Points::num_info_per_point, lerp_point.get_properties_as_array());
     }
 
     while (!glfwWindowShouldClose(window))
@@ -236,13 +331,19 @@ int main()
     return 0;
 }
 
-glm::vec3 quadratic(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, float t){
-    return glm::vec3(lerp(lerp(v1,v2, t), lerp(v2, v3, t), t));
+glm::vec3 quadratic(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, float t)
+{
+    return glm::vec3(lerp(lerp(v1, v2, t), lerp(v2, v3, t), t));
 }
 
 glm::vec2 quadratic(glm::vec2 v1, glm::vec2 v2, glm::vec2 v3, float t)
 {
     return glm::vec2(lerp(lerp(v1, v2, t), lerp(v2, v3, t), t));
+}
+
+Points::Point quadratic(Points::Point p1, Points::Point p2, Points::Point p3, float t)
+{
+    return Points::Point(lerp(lerp(p1, p2, t), lerp(p2, p3, t), t));
 }
 
 glm::vec3 lerp(glm::vec3 v1, glm::vec3 v2, float t)
@@ -253,6 +354,11 @@ glm::vec3 lerp(glm::vec3 v1, glm::vec3 v2, float t)
 glm::vec2 lerp(glm::vec2 v1, glm::vec2 v2, float t)
 {
     return glm::vec2(v1.x + t * (v2.x - v1.x), v1.y + t * (v2.y - v1.y));
+}
+
+Points::Point lerp(Points::Point p1, Points::Point p2, float t)
+{
+    return Points::Point(lerp(p1.position, p2.position, t), lerp(p1.tex_coord, p2.tex_coord, t));
 }
 
 void processInput(GLFWwindow *window)
