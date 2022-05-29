@@ -49,17 +49,6 @@ struct Vertex
 
     Vertex() : vertices_length(0), number_of_points(0), primitive_size(sizeof(float)) {}
 
-    void add_vertices(float *vertices, int num_new_vertices, float *new_vertices)
-    {
-        unsigned int num_new_points = num_new_vertices / INFO_PER_POINT;
-        for (int i = 0; i < num_new_vertices; i++)
-        {
-            vertices[i] = new_vertices[i];
-        }
-        this->vertices_length += num_new_vertices;
-        this->number_of_points += num_new_points;
-    }
-
     void add_vertices_update_buffer(unsigned int &VBO, int num_new_vertices, float *new_vertices)
     {
         unsigned int num_new_points = num_new_vertices / INFO_PER_POINT;
@@ -69,37 +58,6 @@ struct Vertex
 
         this->vertices_length += num_new_vertices;
         this->number_of_points += num_new_points;
-    }
-};
-
-struct Index
-{
-    unsigned int indices_length;
-    unsigned int number_of_groups;
-    float primitive_size;
-
-    Index() : indices_length(0), number_of_groups(0), primitive_size(sizeof(unsigned int)) {}
-
-    void add_indices(unsigned int *indices, int num_new_indices, unsigned int *new_indices)
-    {
-        unsigned int new_number_of_groups = num_new_indices / INFO_PER_POINT;
-        for (int i = 0; i < num_new_indices; i++)
-        {
-            indices[i] = new_indices[i];
-        }
-        this->indices_length += num_new_indices;
-        this->number_of_groups += new_number_of_groups;
-    }
-
-    void add_indices_update_buffer(unsigned int &EBO, int num_new_indices, unsigned int *new_indices)
-    {
-        unsigned int new_number_of_groups = num_new_indices / INFO_PER_POINT;
-
-        glBindBuffer(GL_ARRAY_BUFFER, EBO);
-        glBufferSubData(GL_ARRAY_BUFFER, indices_length * primitive_size, sizeof(new_indices), new_indices);
-
-        this->indices_length += num_new_indices;
-        this->number_of_groups += new_number_of_groups;
     }
 };
 
@@ -243,7 +201,6 @@ int main()
     unsigned int indices[1 * MAX_NO_PATCHES] = {};
 
     Vertex vertex = Vertex();
-    Index index = Index();
     Points points = Points();
 
     points.vertex = &vertex;
@@ -292,7 +249,7 @@ int main()
 
         Points::Point lerp_point = lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t);
         points.add_point(lerp_point);
-        vertex.add_vertices_update_buffer(VBO, Points::num_info_per_point, lerp_point.get_properties_as_array());
+        points.write_point_to_buffer(VBO, lerp_point);
     }
 
     while (!glfwWindowShouldClose(window))
