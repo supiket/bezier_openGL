@@ -25,6 +25,10 @@ using namespace std;
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void processInput(GLFWwindow *window);
 unsigned int loadTexture(const char *path);
+glm::vec3 quadratic(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t);
+glm::vec2 quadratic(glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t);
+glm::vec3 lerp(glm::vec3 p1, glm::vec3 p2, float t);
+glm::vec2 lerp(glm::vec2 p1, glm::vec2 p2, float t);
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -39,6 +43,72 @@ const char HEIGHT_TEX_PATH[] = "./textures/lava/height.png";
 const char METALLIC_TEX_PATH[] = "./textures/lava/metallic.png";
 const char NORMAL_TEX_PATH[] = "./textures/lava/normal.png";
 const char ROUGHNESS_TEX_PATH[] = "./textures/lava/roughness.png";
+
+#define INFO_PER_POINT 5
+#define MAX_NO_POINTS 100
+#define MAX_NO_PATCHES 15
+
+struct Vertex
+{
+    unsigned int vertices_length;
+    unsigned int number_of_points;
+    float primitive_size;
+
+    Vertex() : vertices_length(0), number_of_points(0), primitive_size(sizeof(float)) {}
+
+    void add_vertices(float *vertices, int num_new_vertices, float *new_vertices)
+    {
+        unsigned int num_new_points = num_new_vertices / INFO_PER_POINT;
+        for (int i = 0; i < num_new_vertices; i++)
+        {
+            vertices[i] = new_vertices[i];
+        }
+        this->vertices_length += num_new_vertices;
+        this->number_of_points += num_new_points;
+    }
+
+    void add_vertices_update_buffer(unsigned int &VBO, int num_new_vertices, float *new_vertices)
+    {
+        unsigned int num_new_points = num_new_vertices / INFO_PER_POINT;
+
+        glad_glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, vertices_length * primitive_size, sizeof(new_vertices), new_vertices);
+
+        this->vertices_length += num_new_vertices;
+        this->number_of_points += num_new_points;
+    }
+};
+
+struct Index
+{
+    unsigned int indices_length;
+    unsigned int number_of_groups;
+    float primitive_size;
+
+    Index() : indices_length(0), number_of_groups(0), primitive_size(sizeof(unsigned int)) {}
+
+    void add_indices(unsigned int *indices, int num_new_indices, unsigned int *new_indices)
+    {
+        unsigned int new_number_of_groups = num_new_indices / INFO_PER_POINT;
+        for (int i = 0; i < num_new_indices; i++)
+        {
+            indices[i] = new_indices[i];
+        }
+        this->indices_length += num_new_indices;
+        this->number_of_groups += new_number_of_groups;
+    }
+
+    void add_indices_update_buffer(unsigned int &EBO, int num_new_indices, unsigned int *new_indices)
+    {
+        unsigned int new_number_of_groups = num_new_indices / INFO_PER_POINT;
+
+        glBindBuffer(GL_ARRAY_BUFFER, EBO);
+        glBufferSubData(GL_ARRAY_BUFFER, indices_length * primitive_size, sizeof(new_indices), new_indices);
+
+        this->indices_length += num_new_indices;
+        this->number_of_groups += new_number_of_groups;
+    }
+};
 
 int main()
 {
@@ -67,27 +137,44 @@ int main()
 
     Shader lava_shader(VERTEX_SHADER_NAME, FRAGMENT_SHADER_NAME);
 
-    float vertices[5 * 10] = {
+    float vertices[INFO_PER_POINT * MAX_NO_POINTS] = {};
+    unsigned int indices[1 * MAX_NO_PATCHES] = {};
+
+    float initial_points[] = {
         0.0f, 0.3f, 0.0f, 1.0f, 1.0f,
         0.1f, 0.1f, 0.0f, 1.0f, 0.0f,
         0.4f, 0.4f, 0.0f, 0.0f, 0.0f,
-        0.6f, 0.3f, 0.0f, 0.0f, 1.0f
-    };
+        0.6f, 0.3f, 0.0f, 0.0f, 1.0f};
 
-    unsigned int VBO, VAO;
+    unsigned int initial_indices[] = {
+        0,
+        1,
+        2,
+        3};
+
+    Vertex vertex = Vertex();
+    Index index = Index();
+    vertex.add_vertices(vertices, sizeof(initial_points) / vertex.primitive_size, initial_points);
+    index.add_indices(indices, sizeof(initial_indices) / index.primitive_size, initial_indices);
+
+    unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_DYNAMIC_DRAW);
+
     // position
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, INFO_PER_POINT * vertex.primitive_size, (void *)0);
     glEnableVertexAttribArray(0);
     // texture coord
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, INFO_PER_POINT * vertex.primitive_size, (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     unsigned int baseMap = loadTexture(BASE_COLOR_TEX_PATH);
@@ -97,17 +184,28 @@ int main()
     lava_shader.setInt("material.base", 0);
     lava_shader.setInt("material.emission", 1);
 
+    for (float t = 0; t <= 1.1f; t += 0.05f)
+    {
+        glm::vec3 ap1 = glm::vec3(0.0f, 0.3f, 0.0f);
+        glm::vec3 ap2 = glm::vec3(0.1f, 0.1f, 0.0f);
+        glm::vec3 cp1 = glm::vec3(0.4f, 0.4f, 0.0f);
+        glm::vec3 cp2 = glm::vec3(0.6f, 0.3f, 0.0f);
+
+        glm::vec3 v1 = quadratic(ap1, ap2, cp1, t);
+        glm::vec3 v2 = quadratic(ap2, cp1, cp2, t);
+
+        glm::vec3 v = lerp(v1, v2, t);
+
+        float new_vertex[5] = {v.x, v.y, v.z, 1.0f, 1.0f};
+        vertex.add_vertices_update_buffer(VBO, sizeof(new_vertex) / vertex.primitive_size, new_vertex);
+    }
+
     while (!glfwWindowShouldClose(window))
     {
         processInput(window);
 
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        float new_vertex[] = {-0.4f, -0.4f, 0.0f, 1.0f, 1.0f};
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 20 * sizeof(float), sizeof(new_vertex), new_vertex);
 
         glActiveTexture(GL_TEXTURE0);
 
@@ -124,17 +222,37 @@ int main()
         lava_shader.setMat4("view", glm::mat4(1.0f));
         lava_shader.setMat4("projection", glm::mat4(1.0f));
 
-        glad_glPointSize(10);
-        glDrawArrays(GL_POINTS, 0, 5);
+        glad_glPointSize(7);
+        glDrawArrays(GL_POINTS, 0, vertex.number_of_points);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
 
     glfwTerminate();
     return 0;
+}
+
+glm::vec3 quadratic(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, float t){
+    return glm::vec3(lerp(lerp(v1,v2, t), lerp(v2, v3, t), t));
+}
+
+glm::vec2 quadratic(glm::vec2 v1, glm::vec2 v2, glm::vec2 v3, float t)
+{
+    return glm::vec2(lerp(lerp(v1, v2, t), lerp(v2, v3, t), t));
+}
+
+glm::vec3 lerp(glm::vec3 v1, glm::vec3 v2, float t)
+{
+    return glm::vec3(v1.x + t * (v2.x - v1.x), v1.y + t * (v2.y - v1.y), v1.z + t * (v2.z - v1.z));
+}
+
+glm::vec2 lerp(glm::vec2 v1, glm::vec2 v2, float t)
+{
+    return glm::vec2(v1.x + t * (v2.x - v1.x), v1.y + t * (v2.y - v1.y));
 }
 
 void processInput(GLFWwindow *window)
