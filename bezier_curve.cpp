@@ -40,6 +40,7 @@ const char ROUGHNESS_TEX_PATH[] = "./textures/lava/roughness.png";
 #define INFO_PER_POINT 5
 #define MAX_NO_POINTS 100
 #define MAX_NO_PATCHES 15
+#define MARKER_RADIUS 15
 
 struct Vertex
 {
@@ -59,6 +60,12 @@ struct Vertex
         this->vertices_length += num_new_vertices;
         this->number_of_points += num_new_points;
     }
+
+    void modify_point_position_in_buffer(unsigned int &VBO, float offset, float size, float *new_pos)
+    {
+        glad_glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, offset, size, new_pos);
+    }
 };
 
 struct Points
@@ -68,6 +75,7 @@ struct Points
         glm::vec3 position;
         glm::vec2 tex_coord;
         static Points *points;
+        int index;
 
         Point()
         {
@@ -104,6 +112,7 @@ struct Points
 
     void add_point(Point point)
     {
+        point.index = num_points;
         this->points[num_points++] = point;
     }
 
@@ -152,7 +161,17 @@ struct Points
 
         this->vertex->add_vertices_update_buffer(VBO, INFO_PER_POINT, properties_array);
     }
-};
+
+    void modity_point_position_in_buffer(unsigned int &VBO, int point_index, glm::vec3 new_position)
+    {
+        this->points[point_index].position = new_position;
+        float offset = point_index * INFO_PER_POINT * this->vertex->primitive_size;
+        float new_pos[3] = {new_position.x, new_position.y, new_position.z};
+        float size = sizeof(new_pos);
+        this->vertex->modify_point_position_in_buffer(VBO, offset, size, new_pos);
+    }
+
+} points;
 
 Points::Point *Points::points = new Points::Point[MAX_NO_POINTS];
 int Points::num_points = 0;
@@ -161,6 +180,7 @@ vector<int> Points::info_length_per_point = {3, 2};
 Vertex *Points::vertex = new Vertex;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
+void mouse_callback(GLFWwindow *window, int button, int action, int mods);
 void processInput(GLFWwindow *window);
 unsigned int loadTexture(const char *path);
 glm::vec3 quadratic(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t);
@@ -169,6 +189,10 @@ Points::Point quadratic(Points::Point p1, Points::Point p2, Points::Point p3, fl
 glm::vec3 lerp(glm::vec3 p1, glm::vec3 p2, float t);
 glm::vec2 lerp(glm::vec2 p1, glm::vec2 p2, float t);
 Points::Point lerp(Points::Point p1, Points::Point p2, float t);
+glm::vec3 convert_mouse_coord_to_world(double x, double y);
+
+bool mouse_l_down = false;
+int selected = -1;
 
 int main()
 {
@@ -186,6 +210,7 @@ int main()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetMouseButtonCallback(window, mouse_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -201,7 +226,6 @@ int main()
     unsigned int indices[1 * MAX_NO_PATCHES] = {};
 
     Vertex vertex = Vertex();
-    Points points = Points();
 
     points.vertex = &vertex;
 
@@ -239,18 +263,18 @@ int main()
 
     points.write_all_points_to_buffer(VBO);
 
-    int patch = 0;
-    for (float t = 0; t <= 1.1f; t += 0.05f)
-    {
-        Points::Point p1 = points.points[patch];
-        Points::Point p2 = points.points[patch + 1];
-        Points::Point p3 = points.points[patch + 2];
-        Points::Point p4 = points.points[patch + 3];
+    // int patch = 0;
+    // for (float t = 0; t <= 1.1f; t += 0.05f)
+    // {
+    //     Points::Point p1 = points.points[patch];
+    //     Points::Point p2 = points.points[patch + 1];
+    //     Points::Point p3 = points.points[patch + 2];
+    //     Points::Point p4 = points.points[patch + 3];
 
-        Points::Point lerp_point = lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t);
-        points.add_point(lerp_point);
-        points.write_point_to_buffer(VBO, lerp_point);
-    }
+    //     Points::Point lerp_point = lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t);
+    //     points.add_point(lerp_point);
+    //     points.write_point_to_buffer(VBO, lerp_point);
+    // }
 
     while (!glfwWindowShouldClose(window))
     {
@@ -258,6 +282,15 @@ int main()
 
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (selected != -1)
+        {
+            double x, y;
+            glfwGetCursorPos(window, &x, &y);
+            Points::Point selected_p = points.points[selected];
+            glm::vec3 new_position = convert_mouse_coord_to_world(x, y);
+            points.modity_point_position_in_buffer(VBO, selected, new_position);
+        }
 
         glActiveTexture(GL_TEXTURE0);
 
@@ -274,7 +307,7 @@ int main()
         lava_shader.setMat4("view", glm::mat4(1.0f));
         lava_shader.setMat4("projection", glm::mat4(1.0f));
 
-        glad_glPointSize(7);
+        glad_glPointSize(15);
         glDrawArrays(GL_POINTS, 0, vertex.number_of_points);
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -364,4 +397,41 @@ unsigned int loadTexture(char const *path)
     }
 
     return textureID;
+}
+
+void mouse_callback(GLFWwindow *window, int button, int action, int mods)
+{
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if (GLFW_PRESS == action)
+        {
+            mouse_l_down = true;
+        }
+        else if (GLFW_RELEASE == action)
+        {
+            selected = -1;
+            mouse_l_down = false;
+        }
+    }
+
+    if (mouse_l_down)
+    {
+        double x, y;
+        glfwGetCursorPos(window, &x, &y);
+        for (int i = 0; i < points.num_points; i++)
+        {
+            Points::Point point = points.points[i];
+            float distance = glm::distance(convert_mouse_coord_to_world(x, y), glm::vec3(point.position)) * 100;
+            if (distance < MARKER_RADIUS)
+            {
+                selected = point.index;
+                break;
+            }
+        }
+    }
+}
+
+glm::vec3 convert_mouse_coord_to_world(double x, double y){
+    return glm::vec3(2 * x / SCR_WIDTH - 1, 1 - 2 * y /SCR_HEIGHT, 0);
 }
