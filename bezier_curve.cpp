@@ -183,6 +183,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
 void processInput(GLFWwindow *window);
 unsigned int loadTexture(const char *path);
+Points::Point cubic(Points::Point p1, Points::Point p2, Points::Point p3, Points::Point p4, float t);
 glm::vec3 quadratic(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, float t);
 glm::vec2 quadratic(glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t);
 Points::Point quadratic(Points::Point p1, Points::Point p2, Points::Point p3, float t);
@@ -256,25 +257,39 @@ int main()
     lava_shader.setInt("material.base", 0);
     lava_shader.setInt("material.emission", 1);
 
-    points.add_point(Points::Point(glm::vec3(0.0f, 0.3f, 0.0f), glm::vec2(1.0f, 1.0f)));
-    points.add_point(Points::Point(glm::vec3(0.1f, 0.1f, 0.0f), glm::vec2(0.0f, 1.0f)));
-    points.add_point(Points::Point(glm::vec3(0.4f, 0.4f, 0.0f), glm::vec2(0.0f, 0.0f)));
-    points.add_point(Points::Point(glm::vec3(0.6f, 0.3f, 0.0f), glm::vec2(1.0f, 0.0f)));
+    // create a function to add these points by starting from a coordinate and adding to it randomly
+    points.add_point(Points::Point(glm::vec3(-0.6f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f)));
+    points.add_point(Points::Point(glm::vec3(-0.4f, 0.4f, 0.0f), glm::vec2(0.0f, 1.0f)));
+    points.add_point(Points::Point(glm::vec3(-0.1f, 0.6f, 0.0f), glm::vec2(0.0f, 0.0f)));
+    points.add_point(Points::Point(glm::vec3(0.1f, 0.2f, 0.0f), glm::vec2(1.0f, 0.0f)));
+    points.add_point(Points::Point(glm::vec3(0.3f, 0.1f, 0.0f), glm::vec2(1.0f, 0.0f)));
+    points.add_point(Points::Point(glm::vec3(0.5f, -0.3f, 0.0f), glm::vec2(1.0f, 0.0f)));
+    points.add_point(Points::Point(glm::vec3(0.7f, 0.5f, 0.0f), glm::vec2(1.0f, 0.0f)));
 
     points.write_all_points_to_buffer(VBO);
 
-    // int patch = 0;
-    // for (float t = 0; t <= 1.1f; t += 0.05f)
-    // {
-    //     Points::Point p1 = points.points[patch];
-    //     Points::Point p2 = points.points[patch + 1];
-    //     Points::Point p3 = points.points[patch + 2];
-    //     Points::Point p4 = points.points[patch + 3];
+    int patch = 1;
+    for (int p = 0; p < patch; p++)
+    {
+        for (float t = 0; t <= 1.1f; t += 0.05f)
+        {
+            Points::Point p1 = points.points[p];
+            Points::Point p2 = points.points[p + 1];
+            Points::Point p3 = points.points[p + 2];
+            Points::Point p4 = points.points[p + 3];
 
-    //     Points::Point lerp_point = lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t);
-    //     points.add_point(lerp_point);
-    //     points.write_point_to_buffer(VBO, lerp_point);
-    // }
+            Points::Point lerp_point_1 = cubic(p1, p2, p3, p4, t);
+            points.add_point(lerp_point_1);
+            points.write_point_to_buffer(VBO, lerp_point_1);
+
+            Points::Point p5 = points.points[p + 4];
+            Points::Point p6 = points.points[p + 5];
+            Points::Point p7 = points.points[p + 6];
+            Points::Point lerp_point_2 = cubic(p4, p5, p6, p7, t);
+            points.add_point(lerp_point_2);
+            points.write_point_to_buffer(VBO, lerp_point_2);
+        }
+    }
 
     while (!glfwWindowShouldClose(window))
     {
@@ -288,8 +303,32 @@ int main()
             double x, y;
             glfwGetCursorPos(window, &x, &y);
             Points::Point selected_p = points.points[selected];
+            glm::vec3 old_position = selected_p.position;
             glm::vec3 new_position = convert_mouse_coord_to_world(x, y);
+            glm::vec3 offset = new_position - old_position;
             points.modity_point_position_in_buffer(VBO, selected, new_position);
+            int i = 7;
+            for (float t = 0; t <= 1.1f; t += 0.05f)
+            {
+                Points::Point p_1 = points.points[i];
+                Points::Point p_2 = points.points[i + 1];
+
+                Points::Point p1 = points.points[0];
+                Points::Point p2 = points.points[1];
+                Points::Point p3 = points.points[2];
+                Points::Point p4 = points.points[3];
+                Points::Point p5 = points.points[4];
+                Points::Point p6 = points.points[5];
+                Points::Point p7 = points.points[6];
+
+                glm::vec3 new_position_1 = cubic(p1, p2, p3, p4, t).position;
+                points.modity_point_position_in_buffer(VBO, i, new_position_1);
+
+                glm::vec3 new_position_2 = cubic(p4, p5, p6, p7, t).position;
+                points.modity_point_position_in_buffer(VBO, i + 1, new_position_2);
+
+                i += 2;
+            }
         }
 
         glActiveTexture(GL_TEXTURE0);
@@ -319,6 +358,11 @@ int main()
 
     glfwTerminate();
     return 0;
+}
+
+Points::Point cubic(Points::Point p1, Points::Point p2, Points::Point p3, Points::Point p4, float t)
+{
+    return Points::Point(lerp(quadratic(p1, p2, p3, t), quadratic(p2, p3, p4, t), t));
 }
 
 glm::vec3 quadratic(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3, float t)
@@ -432,6 +476,7 @@ void mouse_callback(GLFWwindow *window, int button, int action, int mods)
     }
 }
 
-glm::vec3 convert_mouse_coord_to_world(double x, double y){
-    return glm::vec3(2 * x / SCR_WIDTH - 1, 1 - 2 * y /SCR_HEIGHT, 0);
+glm::vec3 convert_mouse_coord_to_world(double x, double y)
+{
+    return glm::vec3(2 * x / SCR_WIDTH - 1, 1 - 2 * y / SCR_HEIGHT, 0);
 }
