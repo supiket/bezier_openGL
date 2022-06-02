@@ -88,11 +88,10 @@ struct Points
 
     Points() : primitive_size(sizeof(float)) {}
 
-    void add_vertices_to_buffer(unsigned int &VBO, int num_new_vertices, float *new_vertices)
+    void add_vertices_to_buffer(unsigned int &VBO, float offset, float size, float *new_vertices)
     {
-        int num_new_points = num_new_vertices / INFO_PER_POINT;
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferSubData(GL_ARRAY_BUFFER, (this->num_points-1) * this->primitive_size * INFO_PER_POINT, num_new_vertices * this->primitive_size, new_vertices);
+        glBufferSubData(GL_ARRAY_BUFFER, offset, size, new_vertices);
     }
 
     void modify_point_position_in_buffer(unsigned int &VBO, float offset, float size, float *new_pos)
@@ -142,8 +141,9 @@ struct Points
         {
             properties_array[i] = point_properties[i];
         }
-
-        this->add_vertices_to_buffer(VBO, INFO_PER_POINT, properties_array);
+        float offset = (this->num_points - 1) * this->primitive_size * INFO_PER_POINT;
+        float size = this->primitive_size * INFO_PER_POINT;
+        this->add_vertices_to_buffer(VBO, offset, size, properties_array);
     }
 
     void modify_point_position_in_buffer(unsigned int &VBO, int point_index, glm::vec3 new_position)
