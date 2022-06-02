@@ -39,7 +39,7 @@ const char ROUGHNESS_TEX_PATH[] = "./textures/lava/roughness.png";
 
 #define INFO_PER_POINT 8
 #define MAX_NO_POINTS 100000
-#define MARKER_RADIUS 15
+#define MARKER_RADIUS 8
 
 struct Points
 {
@@ -50,20 +50,22 @@ struct Points
         glm::vec2 tex_coord;
         static Points *points;
         int index;
+        bool is_CP;
 
         Point()
         {
             this->points->num_points = 0;
         }
 
-        Point(glm::vec3 pos)
+        Point(glm::vec3 pos, bool is_CP = false)
         {
             this->position = pos;
             this->normal = glm::vec3(0, 0, 0);
             this->tex_coord = glm::vec2(0, 0);
+            this->is_CP = is_CP;
         }
 
-        Point(glm::vec3 pos, glm::vec3 normal, glm::vec2 tex) : position(pos), normal(normal), tex_coord(tex) {}
+        Point(glm::vec3 pos, glm::vec3 normal, glm::vec2 tex, bool is_CP = false) : position(pos), normal(normal), tex_coord(tex), is_CP(is_CP) {}
 
         float *get_properties_as_array()
         {
@@ -161,6 +163,11 @@ Points::Point *Points::points = new Points::Point[MAX_NO_POINTS];
 int Points::num_points = 0;
 vector<int> Points::info_length_per_point = {3, 3, 2};
 
+#define NI 4
+#define NJ 5
+#define RES_I NI * 10
+#define RES_J NJ * 10
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
 void processInput(GLFWwindow *window);
@@ -175,21 +182,17 @@ Points::Point lerp(Points::Point p1, Points::Point p2, float t);
 glm::vec3 convert_mouse_coord_to_world(float x, float y);
 void quad(unsigned int &VBO, glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d);
 float blend(int k, float mu, int n);
-void bezier_surface(unsigned int &VBO);
-void generate_points(unsigned int &VBO);
+void bezier_surface(unsigned int &VBO, int NUMI, int NUMJ);
+void generate_points(unsigned int &VBO, int NUMI, int NUMJ);
 
 bool mouse_l_down = false;
 int selected = -1;
-
-#define NI 4
-#define NJ 5
-#define RES_I NI * 10
-#define RES_J NJ * 10
 
 float CP[NI][NJ][3];
 float outp[RES_I][RES_J][3];
 
 bool already_added = false;
+bool draw_bezier_surface = false;
 
 int main()
 {
@@ -247,13 +250,7 @@ int main()
     lava_shader.setInt("material.base", 0);
     lava_shader.setInt("material.emission", 1);
 
-    generate_points(VBO);
-    // for (float i = -1.0f; i <= 1.0f; i += 0.2f)
-    // {
-    //     points.add_point(VBO, Points::Point(glm::vec3(i, 0.0f, 0.0f)));
-    //     points.add_point(VBO, Points::Point(glm::vec3(0.0f, i, 0.0f)));
-    //     // points.add_point(VBO, Points::Point(glm::vec3(0.0f, 0.0f, i)));
-    // }
+    generate_points(VBO, NI, NJ);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -262,14 +259,24 @@ int main()
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if (mouse_l_down && !already_added && selected == -1)
+        if (mouse_l_down)
         {
             double x, y;
             glfwGetCursorPos(window, &x, &y);
             glm::vec3 pos = convert_mouse_coord_to_world(float(x), float(y));
-            cout << pos.x << ", " << pos.y << ", " << pos.z << endl;
-            points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, pos.z)));
-            already_added = true;
+            if (!already_added && selected == -1)
+            {
+                points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, pos.z)));
+                already_added = true;
+            }
+            else if (mouse_l_down && selected != -1)
+            {
+                Points::Point selected_p = points.points[selected];
+                glm::vec3 old_position = selected_p.position;
+                glm::vec3 new_position = convert_mouse_coord_to_world(x, y);
+                glm::vec3 offset = new_position - old_position;
+                points.modify_point_position_in_buffer(VBO, selected, new_position);
+            }
         }
 
         glActiveTexture(GL_TEXTURE0);
@@ -400,10 +407,11 @@ void mouse_callback(GLFWwindow *window, int button, int action, int mods)
             selected = -1;
             already_added = false;
             mouse_l_down = false;
+            draw_bezier_surface = true;
         }
     }
 
-    if (mouse_l_down)
+    if (mouse_l_down && selected == -1)
     {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
@@ -475,7 +483,7 @@ float blend(int k, float mu, int n)
     return blend;
 }
 
-void bezier_surface(unsigned int &VBO)
+void bezier_surface(unsigned int &VBO, int NUMI, int NUMJ)
 {
     int i, j, ki, kj;
     float mui, muj, bi, bj;
@@ -490,12 +498,12 @@ void bezier_surface(unsigned int &VBO)
             outp[i][j][0] = 0;
             outp[i][j][1] = 0;
             outp[i][j][2] = 0;
-            for (ki = 0; ki <= NI; ki++)
+            for (ki = 0; ki <= NUMI; ki++)
             {
-                bi = blend(ki, mui, NI);
-                for (kj = 0; kj <= NJ; kj++)
+                bi = blend(ki, mui, NUMI);
+                for (kj = 0; kj <= NUMJ; kj++)
                 {
-                    bj = blend(kj, muj, NJ);
+                    bj = blend(kj, muj, NUMJ);
                     outp[i][j][0] += (CP[ki][kj][0] * bi * bj);
                     outp[i][j][1] += (CP[ki][kj][1] * bi * bj);
                     outp[i][j][2] += (CP[ki][kj][2] * bi * bj);
@@ -508,31 +516,29 @@ void bezier_surface(unsigned int &VBO)
     {
         for (j = 0; j < RES_J - 1; j++)
         {
-            glm::vec3 a = glm::vec3(outp[i][j][0] / NI - 0.5f, outp[i][j][1] / NJ - 0.5f, outp[i][j][2]);
-            glm::vec3 b = glm::vec3(outp[i][j + 1][0] / NI - 0.5f, outp[i][j + 1][1] / NJ - 0.5f, outp[i][j + 1][2]);
-            glm::vec3 c = glm::vec3(outp[i + 1][j][0] / NI - 0.5f, outp[i + 1][j][1] / NJ - 0.5f, outp[i + 1][j][2]);
-            glm::vec3 d = glm::vec3(outp[i + 1][j + 1][0] / NI - 0.5f, outp[i + 1][j + 1][1] / NJ - 0.5f, outp[i + 1][j + 1][2]);
+            glm::vec3 a = glm::vec3(outp[i][j][0] / NUMI - 0.5f, outp[i][j][1] / NUMJ - 0.5f, outp[i][j][2]);
+            glm::vec3 b = glm::vec3(outp[i][j + 1][0] / NUMI - 0.5f, outp[i][j + 1][1] / NUMJ - 0.5f, outp[i][j + 1][2]);
+            glm::vec3 c = glm::vec3(outp[i + 1][j][0] / NUMI - 0.5f, outp[i + 1][j][1] / NUMJ - 0.5f, outp[i + 1][j][2]);
+            glm::vec3 d = glm::vec3(outp[i + 1][j + 1][0] / NUMI - 0.5f, outp[i + 1][j + 1][1] / NUMJ - 0.5f, outp[i + 1][j + 1][2]);
             quad(VBO, a, c, d, b);
-            // cout << outp[i][0][0] / NI - 0.5f << ", " << outp[i][0][1] / NJ - 0.5f << ", " << outp[i][0][2] << endl;
         }
     }
 }
 
-void generate_points(unsigned int &VBO)
+void generate_points(unsigned int &VBO, int NUMI, int NUMJ)
 {
     int i, j, ki, kj;
     float mui, muj, bi, bj;
     srand(time(0));
-    for (i = 0; i <= NI; i++)
+    for (i = 0; i <= NUMI; i++)
     {
-        for (j = 0; j <= NJ; j++)
+        for (j = 0; j <= NUMJ; j++)
         {
             CP[i][j][0] = i;
             CP[i][j][1] = j;
             CP[i][j][2] = 0.0f;
-            // cout << CP[i][j][0] << ", " << CP[i][j][1] << endl;
         }
     }
 
-    bezier_surface(VBO);
+    bezier_surface(VBO, NUMI, NUMJ);
 }
