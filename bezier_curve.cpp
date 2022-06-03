@@ -295,9 +295,9 @@ int main()
         lava_shader.setMat4("projection", glm::mat4(1.0f));
 
         glPointSize(8);
-        glDrawArrays(GL_POINTS, 0, points.num_points);
-        // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        // glDrawArrays(GL_TRIANGLES, 0, points.num_points);
+        // glDrawArrays(GL_POINTS, 0, points.num_points);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDrawArrays(GL_TRIANGLES, 0, points.num_points);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
