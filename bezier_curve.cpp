@@ -155,7 +155,7 @@ int main()
         lava_shader.setMat4("projection", projection);
 
         glPointSize(8);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDrawArrays(GL_POINTS, 0, (NI + 1) * (NJ + 1));
         glDrawArrays(GL_TRIANGLES, (NI + 1) * (NJ + 1), points.num_points - ((NI + 1) * (NJ + 1)));
 
