@@ -63,6 +63,7 @@ void setupGL();
 unsigned int load_texture(const char *path);
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window);
 void handleMouseDown();
 glm::vec3 convert_mouse_coord_to_world(float x, float y);
@@ -144,6 +145,12 @@ int main()
     return 0;
 }
 
+//
+//
+//----------------------- GLFW & GLAD SETUP -----------------------//
+//
+//
+
 int setupGlfwAndGlad()
 {
     glfwInit();
@@ -163,6 +170,7 @@ int setupGlfwAndGlad()
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetMouseButtonCallback(window, mouse_callback);
+    glfwSetKeyCallback(window, key_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -172,6 +180,12 @@ int setupGlfwAndGlad()
 
     return 0;
 }
+
+//
+//
+//----------------------- GL SETUP-----------------------//
+//
+//
 
 void setupGL()
 {
@@ -290,6 +304,23 @@ void mouse_callback(GLFWwindow *window, int button, int action, int mods)
         }
     }
 }
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if(key == GLFW_KEY_LEFT){
+        cout << "rotate me" << endl;
+    }
+    if(key == GLFW_KEY_RIGHT){
+        cout << "em etator" << endl;
+    }
+    if(key == GLFW_KEY_UP){
+        cout << "r\no\nt\na\nt\ne\n \nm\ne" << endl;
+    }
+    if(key == GLFW_KEY_DOWN){
+        cout << "\ne\nm\n \ne\nt\na\nt\no\nr" << endl;
+    }
+
+}
+
 
 void handleMouseDown()
 {
