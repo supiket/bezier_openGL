@@ -64,13 +64,14 @@ struct Points
             this->normal = glm::vec3(0, 0, 0);
             this->tex_coord = glm::vec2(0, 0);
             this->is_CP = is_CP;
-            if(is_CP){
+            if (is_CP)
+            {
                 this->i_in_CP_array = i_in_CP_array;
                 this->j_in_CP_array = j_in_CP_array;
             }
         }
 
-        Point(glm::vec3 pos, glm::vec3 normal, glm::vec2 tex, bool is_CP = false) : position(pos), normal(normal), tex_coord(tex), is_CP(is_CP) {}
+        Point(glm::vec3 pos, glm::vec3 normal, glm::vec2 tex, bool is_CP = false) : position(pos), normal(normal), tex_coord(tex), is_CP(is_CP), i_in_CP_array(-1), j_in_CP_array(-1) {}
 
         float *get_properties_as_array()
         {
@@ -274,7 +275,7 @@ int main()
                 points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, pos.z)));
                 already_added = true;
             }
-            else if (mouse_l_down && selected != -1 && selected >= points.num_points - (NI + 1) * (NJ + 1))
+            else if (mouse_l_down && selected != -1 && selected < (NI + 1) * (NJ + 1))
             {
                 Points::Point selected_p = points.points[selected];
                 glm::vec3 old_position = selected_p.position;
@@ -318,8 +319,8 @@ int main()
         glPointSize(8);
         // glDrawArrays(GL_POINTS, 0, points.num_points);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDrawArrays(GL_TRIANGLES, 0, points.num_points - ((NI + 1) * (NJ + 1)));
-        glDrawArrays(GL_POINTS, points.num_points - ((NI + 1) * (NJ + 1)), (NI + 1) * (NJ + 1));
+        glDrawArrays(GL_POINTS, 0, (NI + 1) * (NJ + 1));
+        glDrawArrays(GL_TRIANGLES, (NI + 1) * (NJ + 1), points.num_points - ((NI + 1) * (NJ + 1)));
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -561,8 +562,6 @@ void generate_points(unsigned int &VBO, int NUMI, int NUMJ)
             CP[i][j][2] = 0.0f;
         }
     }
-
-    bezier_surface(VBO, NUMI, NUMJ);
     for (i = 0; i <= NUMI; i++)
     {
         for (j = 0; j <= NUMJ; j++)
@@ -570,4 +569,5 @@ void generate_points(unsigned int &VBO, int NUMI, int NUMJ)
             points.add_point(VBO, Points::Point(glm::vec3(CP[i][j][0] / NUMI - 0.5f, CP[i][j][1] / NUMJ - 0.5f, CP[i][j][2]), true, i, j));
         }
     }
+    bezier_surface(VBO, NUMI, NUMJ);
 }
