@@ -157,6 +157,7 @@ int main()
         glPointSize(8);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDrawArrays(GL_POINTS, 0, (NI + 1) * (NJ + 1));
+        glPointSize(3);
         glDrawArrays(GL_TRIANGLES, (NI + 1) * (NJ + 1), points.num_points - ((NI + 1) * (NJ + 1)));
 
         glfwSwapBuffers(window);
@@ -404,7 +405,6 @@ glm::vec2 convert_mouse_coord_to_world(float x, float y)
     glm::vec4 pos_4d = projection * model * view * glm::vec4(x, y, 0.0f, 0.0f);
     x = pos_4d.x;
     y = pos_4d.y;
-    cout << pos_4d.x << ", " << pos_4d.y << ", " << pos_4d.z << ", " << pos_4d.t << endl;
     return glm::vec2(2 * x / SCR_WIDTH - 1, 1 - 2 * y / SCR_HEIGHT);
 }
 
