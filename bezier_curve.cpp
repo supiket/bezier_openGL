@@ -51,18 +51,23 @@ struct Points
         static Points *points;
         int index;
         bool is_CP;
+        int i_in_CP_array, j_in_CP_array;
 
         Point()
         {
             this->points->num_points = 0;
         }
 
-        Point(glm::vec3 pos, bool is_CP = false)
+        Point(glm::vec3 pos, bool is_CP = false, int i_in_CP_array = -1, int j_in_CP_array = -1)
         {
             this->position = pos;
             this->normal = glm::vec3(0, 0, 0);
             this->tex_coord = glm::vec2(0, 0);
             this->is_CP = is_CP;
+            if(is_CP){
+                this->i_in_CP_array = i_in_CP_array;
+                this->j_in_CP_array = j_in_CP_array;
+            }
         }
 
         Point(glm::vec3 pos, glm::vec3 normal, glm::vec2 tex, bool is_CP = false) : position(pos), normal(normal), tex_coord(tex), is_CP(is_CP) {}
@@ -269,13 +274,21 @@ int main()
                 points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, pos.z)));
                 already_added = true;
             }
-            else if (mouse_l_down && selected != -1)
+            else if (mouse_l_down && selected != -1 && selected >= points.num_points - (NI + 1) * (NJ + 1))
             {
                 Points::Point selected_p = points.points[selected];
                 glm::vec3 old_position = selected_p.position;
                 glm::vec3 new_position = convert_mouse_coord_to_world(x, y);
                 glm::vec3 offset = new_position - old_position;
                 points.modify_point_position_in_buffer(VBO, selected, new_position);
+                // int selected_index = points.num_points - (selected - points.num_points - (NI + 1) * (NJ + 1));
+                // int selected_i = floor(selected_index / NI);
+                // int selected_j = selected_index % NJ;
+                // CP[selected_i][selected_j][0] = new_position.x;
+                // CP[selected_i][selected_j][1] = new_position.y;
+                // CP[selected_i][selected_j][2] = new_position.z;
+                // glClearBuffe
+                // bezier_surface(VBO, NI, NJ);
             }
         }
 
@@ -290,14 +303,23 @@ int main()
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, emissionMap);
 
-        lava_shader.setMat4("model", glm::mat4(1.0f));
-        lava_shader.setMat4("view", glm::mat4(1.0f));
-        lava_shader.setMat4("projection", glm::mat4(1.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
+        glm::mat4 projection = glm::mat4(1.0f);
+        // view = glm::translate(view, glm::vec3(0.5f, 0.5f, 0.5f));
+        // view = glm::rotate(view, (float)glfwGetTime() * glm::radians(20.0f), glm::vec3(1.0f, 1.0f, 0.1f));
+        // projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        // model = glm::translate(model, cubePositions[i]);
+
+        lava_shader.setMat4("model", model);
+        lava_shader.setMat4("view", view);
+        lava_shader.setMat4("projection", projection);
 
         glPointSize(8);
         // glDrawArrays(GL_POINTS, 0, points.num_points);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDrawArrays(GL_TRIANGLES, 0, points.num_points);
+        glDrawArrays(GL_TRIANGLES, 0, points.num_points - ((NI + 1) * (NJ + 1)));
+        glDrawArrays(GL_POINTS, points.num_points - ((NI + 1) * (NJ + 1)), (NI + 1) * (NJ + 1));
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -541,4 +563,11 @@ void generate_points(unsigned int &VBO, int NUMI, int NUMJ)
     }
 
     bezier_surface(VBO, NUMI, NUMJ);
+    for (i = 0; i <= NUMI; i++)
+    {
+        for (j = 0; j <= NUMJ; j++)
+        {
+            points.add_point(VBO, Points::Point(glm::vec3(CP[i][j][0] / NUMI - 0.5f, CP[i][j][1] / NUMJ - 0.5f, CP[i][j][2]), true, i, j));
+        }
+    }
 }
