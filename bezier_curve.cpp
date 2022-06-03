@@ -1,12 +1,15 @@
 // command to compile on my environment (linux mint):
 // g++ -c bezier_curve.cpp
-// g++ -c Points.cpp
 
 // command to link:
 // g++ bezier_curve.o -o bezier_curve.exec -lGL -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -lpthread -lXi -ldl
 
 // execute:
 // ./bezier_curve.exec
+
+// drag and drop a control point to move it
+// use the arrow keys to rotate the view matrix
+// RES_I and RES_J define the resolution
 
 #include "./Points.cpp"
 #include "./glad.h"
@@ -39,6 +42,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 #define MARKER_RADIUS 8
+
 #define NI 4
 #define NJ 5
 #define RES_I NI * 10
