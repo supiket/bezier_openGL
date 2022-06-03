@@ -51,10 +51,17 @@ bool mouse_l_down = false;
 int selected = -1;
 bool already_added = false;
 bool draw_bezier_surface = false;
+bool rotate_left = false;
+bool rotate_right = false;
+bool rotate_up = false;
+bool rotate_down = false;
 
 GLFWwindow *window;
 float vertices[INFO_PER_POINT * MAX_NO_POINTS] = {};
 unsigned int VBO, VAO;
+glm::mat4 model = glm::mat4(1.0f);
+glm::mat4 view = glm::mat4(1.0f);
+glm::mat4 projection = glm::mat4(1.0f);
 
 //----------------------- FUNCTION DECLARATIONS -----------------------//
 
@@ -63,10 +70,11 @@ void setupGL();
 unsigned int load_texture(const char *path);
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, int button, int action, int mods);
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow *window);
 void handleMouseDown();
-glm::vec3 convert_mouse_coord_to_world(float x, float y);
+glm::vec2 convert_mouse_coord_to_world(float x, float y);
+bool mouse_on_point(glm::vec2 mouse, glm::vec3 point);
 void quad(unsigned int &VBO, glm::vec3 a, glm::vec3 b, glm::vec3 c, glm::vec3 d);
 float blend(int k, float mu, int n);
 void bezier_surface(unsigned int &VBO, int NUMI, int NUMJ);
@@ -104,9 +112,30 @@ int main()
         glClearColor(0.8f, 0.8f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // view = glm::translate(view, glm::vec3(0.5f, 0.5f, 0.5f));
+        // view = glm::rotate(view, (float)glfwGetTime() * glm::radians(20.0f), glm::vec3(1.0f, 1.0f, 0.1f));
+        // projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        // model = glm::translate(model, cubePositions[i]);
+
         if (mouse_l_down)
         {
             handleMouseDown();
+        }
+        else if (rotate_left)
+        {
+            view = glm::rotate(view, 0.02f, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+        else if (rotate_right)
+        {
+            view = glm::rotate(view, -0.02f, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+        else if (rotate_up)
+        {
+            view = glm::rotate(view, 0.02f, glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+        else if (rotate_down)
+        {
+            view = glm::rotate(view, -0.02f, glm::vec3(1.0f, 0.0f, 0.0f));
         }
 
         glActiveTexture(GL_TEXTURE0);
@@ -117,20 +146,12 @@ int main()
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, emissionMap);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = glm::mat4(1.0f);
-        glm::mat4 projection = glm::mat4(1.0f);
-        // view = glm::translate(view, glm::vec3(0.5f, 0.5f, 0.5f));
-        // view = glm::rotate(view, (float)glfwGetTime() * glm::radians(20.0f), glm::vec3(1.0f, 1.0f, 0.1f));
-        // projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        // model = glm::translate(model, cubePositions[i]);
-
         lava_shader.setMat4("model", model);
         lava_shader.setMat4("view", view);
         lava_shader.setMat4("projection", projection);
 
         glPointSize(8);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDrawArrays(GL_POINTS, 0, (NI + 1) * (NJ + 1));
         glDrawArrays(GL_TRIANGLES, (NI + 1) * (NJ + 1), points.num_points - ((NI + 1) * (NJ + 1)));
 
@@ -295,8 +316,7 @@ void mouse_callback(GLFWwindow *window, int button, int action, int mods)
         for (int i = 0; i < points.num_points; i++)
         {
             Points::Point point = points.points[i];
-            float distance = glm::distance(convert_mouse_coord_to_world(float(x), float(y)), glm::vec3(point.position)) * 100;
-            if (distance < MARKER_RADIUS)
+            if (mouse_on_point(convert_mouse_coord_to_world(float(x), float(y)), point.position))
             {
                 selected = point.index;
                 break;
@@ -305,38 +325,64 @@ void mouse_callback(GLFWwindow *window, int button, int action, int mods)
     }
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(key == GLFW_KEY_LEFT){
-        cout << "rotate me" << endl;
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    if (action == GLFW_PRESS)
+    {
+        if (key == GLFW_KEY_LEFT)
+        {
+            rotate_left = true;
+        }
+        if (key == GLFW_KEY_RIGHT)
+        {
+            rotate_right = true;
+        }
+        if (key == GLFW_KEY_UP)
+        {
+            rotate_up = true;
+        }
+        if (key == GLFW_KEY_DOWN)
+        {
+            rotate_down = true;
+        }
     }
-    if(key == GLFW_KEY_RIGHT){
-        cout << "em etator" << endl;
+    else if (action == GLFW_RELEASE)
+    {
+        if (key == GLFW_KEY_LEFT && rotate_left)
+        {
+            rotate_left = false;
+        }
+        if (key == GLFW_KEY_RIGHT && rotate_right)
+        {
+            rotate_right = false;
+        }
+        if (key == GLFW_KEY_UP && rotate_up)
+        {
+            rotate_up = false;
+        }
+        if (key == GLFW_KEY_DOWN && rotate_down)
+        {
+            rotate_down = false;
+        }
     }
-    if(key == GLFW_KEY_UP){
-        cout << "r\no\nt\na\nt\ne\n \nm\ne" << endl;
-    }
-    if(key == GLFW_KEY_DOWN){
-        cout << "\ne\nm\n \ne\nt\na\nt\no\nr" << endl;
-    }
-
 }
-
 
 void handleMouseDown()
 {
     double x, y;
     glfwGetCursorPos(window, &x, &y);
-    glm::vec3 pos = convert_mouse_coord_to_world(float(x), float(y));
+    glm::vec2 pos = convert_mouse_coord_to_world(float(x), float(y));
     if (!already_added && selected == -1)
     {
-        points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, pos.z)));
+        points.add_point(VBO, Points::Point(glm::vec3(pos.x, pos.y, 0.0f)));
         already_added = true;
     }
     else if (mouse_l_down && selected != -1 && selected < (NI + 1) * (NJ + 1))
     {
         Points::Point selected_p = points.points[selected];
         glm::vec3 old_position = selected_p.position;
-        glm::vec3 new_position = convert_mouse_coord_to_world(x, y);
+        glm::vec2 new_position_x_y = convert_mouse_coord_to_world(x, y);
+        glm::vec3 new_position = glm::vec3(new_position_x_y.x, new_position_x_y.y, 0.0f);
         glm::vec3 offset = new_position - old_position;
         points.modify_point_position_in_buffer(VBO, selected, new_position);
         int selected_i = selected_p.i_in_CP_array;
@@ -349,9 +395,19 @@ void handleMouseDown()
     }
 }
 
-glm::vec3 convert_mouse_coord_to_world(float x, float y)
+glm::vec2 convert_mouse_coord_to_world(float x, float y)
 {
-    return glm::vec3(2 * x / SCR_WIDTH - 1, 1 - 2 * y / SCR_HEIGHT, 0);
+    glm::vec4 pos_4d = projection * model * view * glm::vec4(x, y, 0.0f, 0.0f);
+    x = pos_4d.x;
+    y = pos_4d.y;
+    cout << pos_4d.x << ", " << pos_4d.y << ", " << pos_4d.z << ", " << pos_4d.t << endl;
+    return glm::vec2(2 * x / SCR_WIDTH - 1, 1 - 2 * y / SCR_HEIGHT);
+}
+
+bool mouse_on_point(glm::vec2 mouse, glm::vec3 point)
+{
+    glm::vec4 pos_4d = projection * model * view * glm::vec4(point.x, point.y, 0.0f, 0.0f);
+    return glm::distance(mouse, glm::vec2(pos_4d.x, pos_4d.y)) * 100 < MARKER_RADIUS;
 }
 
 //
@@ -463,7 +519,7 @@ void generate_points(unsigned int &VBO, int NUMI, int NUMJ)
         {
             CP[i][j][0] = i;
             CP[i][j][1] = j;
-            CP[i][j][2] = 0.0f;
+            CP[i][j][2] = (rand() % 10000) / 10000.0;
         }
     }
     for (i = 0; i <= NUMI; i++)
